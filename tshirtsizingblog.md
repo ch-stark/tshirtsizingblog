@@ -53,8 +53,8 @@ RHACM will reconcile the resource configuration across the relevant components a
 
 A common question when adopting this feature is whether you can easily move from one instance size to another.
 The system fully supports *changing* your `instanceSize` to any available value at any time, and does not block you from moving in either direction.
-Scaling Up: Moving from a lower to a higher size (e.g., small to large) works seamlessly and is the expected path as your fleet and metric volume naturally grow.
-Scaling Down: Moving from a higher size to a lower size is also entirely possible. However, while it is permitted, it is not recommended based on load. You should only scale down if you have actively reduced your active time series footprint; otherwise, the lower resource limits could cause observability components to crash or struggle under the existing workload.
+**Scaling Up**: Moving from a lower to a higher size (e.g., small to large) works seamlessly and is the expected path as your fleet and metric volume naturally grow.
+**Scaling Down**: Moving from a higher size to a lower size is also entirely possible. However, while it is permitted, it is not recommended based on load. You should only scale down if you have actively reduced your active time series footprint; otherwise, the lower resource limits could cause observability components to crash or struggle under the existing workload.
 
  
 ## Further Important Considerations
