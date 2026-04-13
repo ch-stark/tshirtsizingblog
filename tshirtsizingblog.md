@@ -2,7 +2,6 @@
  
 Managing an observability stack across a large hybrid cloud fleet is no small feat — especially when it comes to right-sizing backend components. Red Hat Advanced Cluster Management (RHACM) 2.16 addresses this directly by graduating **T-Shirt Sizing** for hub-side observability to **General Availability (GA)**.
  
----
  
 ## What Is T-Shirt Sizing?
  
@@ -10,7 +9,6 @@ T-Shirt Sizing provides an opinionated, out-of-the-box methodology for scaling h
  
 Each size pre-tunes these core components for optimal performance and efficiency, dramatically reducing the complexity of both initial setup and future scaling operations.
  
----
  
 ## Choosing the Right Size
  
@@ -29,8 +27,7 @@ Sizing is driven primarily by the **number of active time series** in your envir
  
 > **Tip:** When in doubt, size up. It is always safer to over-provision slightly than to under-resource a component handling millions of active series.
  
----
- 
+
 ## How to Configure T-Shirt Sizing
  
 Applying a T-Shirt size requires a single field change in your `MultiClusterObservability` custom resource (CR) on the hub cluster:
@@ -52,7 +49,6 @@ oc apply -f multiclusterobservability.yaml
  
 RHACM will reconcile the resource configuration across the relevant components automatically.
  
----
  
 ## Important Considerations
  
@@ -64,7 +60,6 @@ Any manually defined advanced configurations — such as explicit resource reque
 **Sizing is reactive, not predictive.**
 The feature scales based on your *current* workload. It cannot forecast future time series growth. You are responsible for monitoring fleet growth and adjusting `instanceSize` proactively as your active series count increases.
  
----
  
 ## Summary
  
