@@ -70,6 +70,6 @@ The feature scales based on your *current* workload. It cannot forecast future t
  
 ## Summary
  
-T-Shirt Sizing eliminates the guesswork from RHACM Observability resource provisioning. By mapping your fleet's metric volume to a predefined size profile, platform teams can ensure their centralized observability stack remains highly available, properly tuned, and performant — without deep expertise in every underlying component's resource model.
+**T-Shirt Sizing** eliminates the guesswork from RHACM Observability resource provisioning. By mapping your fleet's metric volume to a predefined size profile, platform teams can ensure their centralized observability stack remains highly available, properly tuned, and performant — without deep expertise in every underlying component's resource model.
  
 As your fleet grows, revisit your active time series count regularly and adjust the `instanceSize` field accordingly. It really is that simple.
