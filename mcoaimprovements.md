@@ -10,30 +10,55 @@ MCOA drastically improves how metrics are handled during connectivity disruption
 At the core of this resiliency is the **Prometheus Agent**, which uses a local **Write Ahead Log (WAL)** to securely buffer federated metric samples on the managed cluster's disk. This architecture ensures:
 
 * **Data Preservation:** If network connectivity is temporarily lost, your data is preserved locally until the connection is restored.
-* **Buffer Capacity:** Provides robust resiliency against network partitions between managed clusters and the centralized hub for **up to two hours** without any data loss.
+* **Buffer Capacity:** Provides robust resiliency against network partitions between managed clusters and the centralized hub for **up to one hour** without any data loss.
 
 
-## Enhanced Cluster Health Detection
-### Addressing the OCM Blind Spot
+## Comprehensive Cluster Health Detection
 
-Historically, cluster health detection relied heavily on the **Open Cluster Management (OCM) lease model**. This created a potential observability blind spot: a metrics collector could actively renew its lease and report as "available" while silently failing to federate or remote-write metrics due to internal crashes, authentication failures, or network issues.
+There are two primary ways users can monitor the health of the observability addon:
 
-To solve this, the observability stack now includes precise, real-time alerting to detect when telemetry pipelines are silently failing:
+* **The Addon Health Feature:** The first method leverages the standard Open Cluster Management (OCM) health probe. For MCOA, this feature ensures the platform Prometheus agent workload (and the user workload agent, if defined) is running, degrading the status in the OCP console if essential resources are missing or down.
+* **Targeted Alerts:** While the health feature effectively ensures the agent is up and running, it leaves a potential blind spot: the agent could be running but silently failing to forward metrics to the hub due to network issues, authentication failures, or internal crashes. As a crucial complement, MCOA defines a multi-layered set of targeted alerts to cover these other failure modes by monitoring the actual flow of telemetry data.
 
-1.  **ManagedClusterMetricsMissing:** This alert immediately flags when a managed cluster's observability add-on reports as available, but no metrics have reached the hub for **15 minutes**.
-2.  **MetricsCollectorNotIngestingSamples:** Firing directly on the managed cluster when the agent fails to federate any metrics locally.
-3.  **MetricsCollectorRemoteWriteFailures:** Firing during high remote-write request failure rates to the hub.
+### Architecture Overview
 
+```mermaid
+graph TD
+    subgraph Managed Cluster
+        direction LR
+        PA[Prometheus Agent] -->|Federation| PP[Platform Prometheus]
+        PP -. "Monitors" .-> PA
+        
+        PP -. "Computes" .-> A1[Alert: MetricsCollectorNotIngestingSamples]
+        PP -. "Computes" .-> A2[Alert: MetricsCollectorRemoteWriteFailures<br/>Alert: MetricsCollectorRemoteWriteBehind]
+    end
+    
+    subgraph Hub Cluster
+        direction LR
+        ObsAPI[Observatorium API] -->|Forwards| TR[Thanos Receive]
+        TRule[Thanos Rule] -->|Queries| TR
+        
+        TRule -. "Computes" .-> A3[Alert: ManagedClusterMetricsMissing]
+    end
+    
+    PA -->|Remote Write| ObsAPI
 
-### Summary of Health Monitoring Improvements
+    classDef alert fill:#ffe6e6,stroke:#ff6666,stroke-width:2px,color:#990000,rx:5px,ry:5px;
+    class A1,A2,A3 alert;
+```
 
-| Feature | Legacy OCM Lease Model | MCOA Observability Stack |
-| :--- | :--- | :--- |
-| **Detection Method** | Heartbeat-based (Lease) | Metric-flow-based (Alerts) |
-| **Failure Visibility** | Often "Green" even if data is missing | Immediate "Red" on telemetry failure |
-| **Resiliency** | Limited local caching | 2-hour local WAL buffer |
-| **Alerting Location** | Central Hub only | Hub-side & Managed Cluster-side |
+### 1. Managed Cluster-Side Alerting
 
-Together, these enhancements guarantee that platform administrators are immediately notified of true telemetry health, completely eliminating **silent failures** in the observability pipeline.
+The following alerting rules are evaluated directly on the managed clusters to catch pipeline issues at the source:
 
-> **Note:** The definition of the `ManagedClusterMetricsMissing` alert is based on provided query parameters, while supplementary alerts and resiliency mechanics are sourced from official MCOA documentation.
+* **MetricsCollectorNotIngestingSamples:** Fires when the Prometheus agent fails to federate any metrics locally.
+* **MetricsCollectorRemoteWriteFailures:** Fires when the Prometheus agent experiences a high failure rate on remote write requests to the hub.
+* **MetricsCollectorRemoteWriteBehind:** Fires when the remote write process is too slow, indicating potential network latency or a struggling hub receiver.
+
+### 2. Hub-Side Alerting (New)
+
+To provide a fail-safe against total communication loss—where even alert forwarding from a managed cluster is broken—a new alert is evaluated by the central hub itself:
+
+* **ManagedClusterMetricsMissing:** This alert fires if the hub receives no metrics from a managed cluster for **15 minutes**, even though its add-on lease is reporting as available. By only targeting available clusters, it prevents alert fatigue from clusters already known to be degraded.
+
+Together, these enhancements guarantee that platform administrators are immediately notified of true telemetry health, completely eliminating **silent failures** in the enterprise observability pipeline.
