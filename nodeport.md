@@ -1,4 +1,4 @@
-# Resolving Node Exporter Port Conflicts on EKS with ACM Observability
+# Resolving Node Exporter Port Conflicts on EKS with ACM Observability (working in ACM 2.17)
 
 ## The Problem
 
