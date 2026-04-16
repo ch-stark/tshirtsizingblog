@@ -1,22 +1,18 @@
-# Resolving Node Exporter Port Conflicts on EKS with ACM Observability (working in ACM 2.17)
+# Resolving Node Exporter Port Conflicts on AKS with ACM Observability (working in ACM 2.17)
 
 ## The Problem
 
-When deploying RHACM Observability on EKS clusters, the ACM-managed Node Exporter fails to start because port **9100** is already in use. EKS clusters commonly run their own Node Exporter instance on the default port, and ACM's observability addon deploys a second one that binds to the same port -- causing pod scheduling failures and `CrashLoopBackOff` errors.
+ACM's observability addon deploys a Node Exporter DaemonSet on managed clusters. To avoid clashing with the standard Node Exporter port (9100), ACM already defaults to host port **19100**. This works on most non-OpenShift providers.
 
-```
-Error: listen tcp :9100: bind: address already in use
-```
+However, the Node Exporter pod runs a kube-rbac-proxy sidecar, and both containers were configured to use the **same port number internally**. Some container runtimes -- notably the one used by **AKS** -- reject this and return a port clash error, preventing the pods from starting.
 
-This affects any non-OpenShift managed cluster where Node Exporter is already deployed as part of the existing monitoring stack (EKS, AKS, GKE, or vanilla Kubernetes clusters with Prometheus pre-installed).
+## The Fix
 
-## The Solution
+PR [stolostron/multicluster-observability-addon#439](https://github.com/stolostron/multicluster-observability-addon/pull/439) separates the Node Exporter listen port from the kube-rbac-proxy port, so each container now uses a different port. This fixes the AKS problem out of the box.
 
-PR [stolostron/multicluster-observability-addon#439](https://github.com/stolostron/multicluster-observability-addon/pull/439) introduces a new `nodeExporterPort` configuration variable that allows you to change the internal Node Exporter listen port independently from the kube-rbac-proxy host port.
+## Configuring a Custom Host Port
 
-### How to Configure
-
-Set the custom port via the `AddOnDeploymentConfig` on the hub cluster:
+If the default host port 19100 is already reserved in your environment, you can change it via the `AddOnDeploymentConfig` on the hub cluster using the `nodeExporterHostPort` key:
 
 ```yaml
 apiVersion: addon.open-cluster-management.io/v1alpha1
@@ -26,21 +22,15 @@ metadata:
   namespace: open-cluster-management
 spec:
   customizedVariables:
-    - name: nodeExporterPort
-      value: "9101"
+    - name: nodeExporterHostPort
+      value: "19200"
 ```
 
-This updates the Node Exporter DaemonSet on the managed cluster to listen on port 9101 instead of 9100, avoiding the conflict with the existing Node Exporter.
-
-### What Changed
-
-- New `nodeExporterPort` custom variable in the observability addon config
-- The Node Exporter DaemonSet `--web.listen-address` and upstream flags now use the configurable port
-- Port validation with strict bounds checking (1-65535)
-- The kube-rbac-proxy host port remains independent, so only the internal listener is affected
+This updates the Node Exporter DaemonSet on managed clusters to bind to host port 19200 instead of 19100.
 
 ### Key Details
 
-- **Default behavior is unchanged** -- if you don't set `nodeExporterPort`, it defaults to 9100 as before
-- **Validation** ensures the port value is within the valid range
+- **No action needed for most users** -- the port separation fix works automatically
+- **Default host port remains 19100** (not 9100) to avoid conflicts with standard Node Exporter
+- Port validation with strict bounds checking (1-65535)
 - The fix ships as part of the multicluster-observability-addon, no changes needed on managed clusters beyond the hub config
